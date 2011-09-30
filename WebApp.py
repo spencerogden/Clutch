@@ -7,9 +7,10 @@ import uuid
 import os.path
 import sys
 import json
+import socket
 
 import mako.lookup
-mako = mako.lookup.TemplateLookup(directories=['templates'],module_directory='mako')
+mako = mako.lookup.TemplateLookup(directories=['web/templates'],module_directory='web/templates/mako')
 
 class Server(threading.Thread):
     def __init__(self, port):
@@ -22,7 +23,7 @@ class Server(threading.Thread):
         self.app = tornado.web.Application([
             (r"/stream/",InstStream,dict(streams=self.streams)),
             (r"/sse-stream/",SSEStream,dict(streams=self.streams)),
-            (r"/static/(.*)",tornado.web.StaticFileHandler,{"path":"static"}),
+            (r"/static/(.*)",tornado.web.StaticFileHandler,{"path":"web/static"}),
             (r"/",MainHandler),
         ])
         
@@ -30,7 +31,7 @@ class Server(threading.Thread):
 
         
     def run(self):
-        print "tornado started on %d" % self.port
+        print "tornado started on %s:%d" % (socket.gethostname(),self.port)
         scheduler = tornado.ioloop.PeriodicCallback(self.send,100, io_loop = self.ioloop )
         scheduler.start()
         self.ioloop.start()

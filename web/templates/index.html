@@ -1,0 +1,58 @@
+<html>
+<head>
+<title>Clutch</title>
+<link rel="stylesheet" type="text/css" href="static/css/clutch.css" />
+<script type="text/javascript" src="static/jquery.js"></script>
+<script type="text/javascript" src="static/jquery-ui.js"></script>
+<script type="text/javascript" src="static/jquery.eventsource.js"></script>
+<script type="text/javascript" src="static/d3.min.js"></script>
+<script type="text/javascript">
+    $(document).ready(function(){
+        activeNumBoxes = []
+        function startstream(){$.eventsource({
+            label: "nums",
+            url: "/sse-stream/",
+            dataType: "json",
+            message: function(msg){
+                activeNumBoxes.each(function(i){
+                    id = $(this).attr("id");
+                    if( id in msg ){
+                        $(this).children(".Data").html(msg[id]);
+                    }
+                });
+            }
+        });}
+        
+        function setupNumBoxes(){
+            activeNumBoxes = [];
+            boxes = $(".NumBox");
+            activeNumBoxes = boxes;
+            boxes.append("<div class='Data'></div><div class='Label'></div>");
+            boxes.each(function(i){
+                //_this = $(this)
+                //$(this).extend({ nb_label: $(this).children(".Label") });
+                //$(this).nb_label = $(this).children(".Label");
+                //$(this).nb_data  = $(this).children(".Data" );
+                //$(this).nb_label.html($(this).attr("id"));
+                $(this).children(".Label").html($(this).attr("id")).css("font-size",$(this).children(".Label").height()*0.90);
+                //$(this).nb_label.css("font-size",$(this).nb_label.height()*0.90);
+                //$(this).nb_data.css( "font-size",$(this).nb_data.height()*0.80);
+                $(this).children(".Data").css( "font-size",$(this).children(".Data").height()*0.80);
+                //$(this) = _this;
+            });            
+        }
+        setupNumBoxes();
+        activeNumBoxes = $(".NumBox");
+        startstream();
+
+
+    });
+
+</script>
+</head>
+<body>
+<div class="NumBox" id="TWA"></div>
+<div class="NumBox" id="TWS"></div><br>
+<div class="NumBox" id="Time"></div><br>
+</body>
+</html>

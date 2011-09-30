@@ -24,7 +24,7 @@ insts = Instruments.InstrumentsMerge()
 
 # foo_insts = Instruments.RandomInstruments('foo',1)
 # bar_insts = Instruments.RandomInstruments('bar',2)
-log_insts = Instruments.LogReaderInstruments('log','09Mar2006_0.csv')
+log_insts = Instruments.LogReaderInstruments('log','logs/09Mar2006_0.csv')
 
 # insts.addInstruments(foo_insts)
 # insts.addInstruments(bar_insts)

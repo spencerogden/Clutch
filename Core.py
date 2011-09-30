@@ -1,5 +1,14 @@
 #!/usr/bin/python
 
+# Function Calculation
+# Bring in list of changed vars
+# Global list of vars with a flag that is either changed,unchanged,unknown
+# Mark vars in changed list as changed, mark all other no dependency vars unchanged
+# for each unknown var, if all dependencies are unchanged, mark unchanged
+#      if any dependency is unknown, recurse and find status of that dependency
+#      if any dependecy is changed, add this var to update list
+# cache update list in dict of (updated var)-->(list of vars in order they should be calced)
+
 import threading
 
 class ClutchCore(object):
