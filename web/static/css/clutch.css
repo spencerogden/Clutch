@@ -20,3 +20,7 @@
     height:20%;
     text-align: center;
 }
+
+#Available{
+    display: none;
+}

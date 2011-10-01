@@ -15,30 +15,27 @@
             dataType: "json",
             message: function(msg){
                 activeNumBoxes.each(function(i){
-                    id = $(this).attr("id");
-                    if( id in msg ){
-                        $(this).children(".Data").html(msg[id]);
+                    varname = $(this).data('var');
+                    if( varname in msg ){
+                        $(this).children(".Data").html(msg[varname]);
                     }
                 });
             }
         });}
         
         function setupNumBoxes(){
-            activeNumBoxes = [];
             boxes = $(".NumBox");
-            activeNumBoxes = boxes;
-            boxes.append("<div class='Data'></div><div class='Label'></div>");
+            boxes.html("<div class='Data'></div><div class='Label'></div>");
             boxes.each(function(i){
-                //_this = $(this)
-                //$(this).extend({ nb_label: $(this).children(".Label") });
-                //$(this).nb_label = $(this).children(".Label");
-                //$(this).nb_data  = $(this).children(".Data" );
-                //$(this).nb_label.html($(this).attr("id"));
-                $(this).children(".Label").html($(this).attr("id")).css("font-size",$(this).children(".Label").height()*0.90);
-                //$(this).nb_label.css("font-size",$(this).nb_label.height()*0.90);
-                //$(this).nb_data.css( "font-size",$(this).nb_data.height()*0.80);
-                $(this).children(".Data").css( "font-size",$(this).children(".Data").height()*0.80);
-                //$(this) = _this;
+                $(this).data('var',$(this).attr("id"))
+                $(this).children(".Label")
+                    .html($(this).data("var"))
+                    .css("font-size",$(this).children(".Label").height()*0.90);
+                $(this).children(".Data")
+                    .css( "font-size",$(this).children(".Data").height()*0.80);
+                if( $(this).parent().attr('id') == 'Active' ){
+                    activeNumBoxes.push($(this))
+                }
             });            
         }
         setupNumBoxes();
@@ -51,8 +48,12 @@
 </script>
 </head>
 <body>
-<div class="NumBox" id="TWA"></div>
-<div class="NumBox" id="TWS"></div><br>
-<div class="NumBox" id="Time"></div><br>
+    <div id="Available">
+        <div class="NumBox" data-var="Time"></div>
+    </div>
+    <div id="Active">
+        <div class="NumBox" data-var="TWA"></div>
+        <div class="NumBox" data-var="TWS"></div>
+    </div>
 </body>
 </html>
