@@ -8,7 +8,9 @@
 <script type="text/javascript" src="static/d3.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function(){
-        activeNumBoxes = []
+        var activeNumBoxes = [];
+        var active = 0;
+        
         function startstream(){$.eventsource({
             label: "nums",
             url: "/sse-stream/",
@@ -23,8 +25,15 @@
             }
         });}
         
+        function rollBox(){
+            $(activeNumBoxes[active]).slideUp();
+            active = (active+1)%activeNumBoxes.length;
+            $(activeNumBoxes[active]).slideDown();
+        }
+        
         function setupNumBoxes(){
-            boxes = $(".NumBox");
+            boxes = $("#Active .NumBox");
+            activeNumBoxes = boxes;
             boxes.html("<div class='Data'></div><div class='Label'></div>");
             boxes.each(function(i){
                 $(this).data('var',$(this).attr("id"))
@@ -33,16 +42,20 @@
                     .css("font-size",$(this).children(".Label").height()*0.90);
                 $(this).children(".Data")
                     .css( "font-size",$(this).children(".Data").height()*0.80);
-                if( $(this).parent().attr('id') == 'Active' ){
-                    activeNumBoxes.push($(this))
-                }
-            });            
+                $(this).click(rollBox);
+            });
+            boxes = $('#Available .NumBox');
+            boxes.each(function(i){
+                $(this).data('var',$(this).attr("id"))
+                $(this).html($(this).attr("id"));
+            });
         }
+        
         setupNumBoxes();
-        activeNumBoxes = $(".NumBox");
         startstream();
 
-
+        
+        
     });
 
 </script>
