@@ -26,9 +26,10 @@
         });}
         
         function rollBox(){
-            $(activeNumBoxes[active]).slideUp();
+            h = $(window).height();
+            $(activeNumBoxes[active]).animate({top: -h},'slow');
             active = (active+1)%activeNumBoxes.length;
-            $(activeNumBoxes[active]).slideDown();
+            $(activeNumBoxes[active]).css({top: h}).show().animate({top: 0},'slow');
         }
         
         function setupNumBoxes(){
@@ -49,6 +50,9 @@
                 $(this).data('var',$(this).attr("id"))
                 $(this).html($(this).attr("id"));
             });
+            for( i=1; i<activeNumBoxes.length; i++ ){
+                $(activeNumBoxes[i]).hide();
+            }
         }
         
         setupNumBoxes();
