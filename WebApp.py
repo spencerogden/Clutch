@@ -25,6 +25,7 @@ class Server(threading.Thread):
             (r"/sse-stream/",SSEStream,dict(streams=self.streams)),
             (r"/static/(.*)",tornado.web.StaticFileHandler,{"path":"web/static"}),
             (r"/",MainHandler),
+            (r"/ios",iOSHandler),
         ])
         
         self.app.listen(self.port)
@@ -54,6 +55,11 @@ class Server(threading.Thread):
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         temp = mako.get_template('index.html')
+        self.write(temp.render())
+
+class iOSHandler(tornado.web.RequestHandler):
+    def get(self):
+        temp = mako.get_template('ios.html')
         self.write(temp.render())
         
 # Deprecated        

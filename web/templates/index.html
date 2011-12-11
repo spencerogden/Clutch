@@ -1,6 +1,12 @@
+<!DOCTYPE html>
 <html>
 <head>
 <title>Clutch</title>
+<meta name="apple-mobile-web-app-capable" content="yes" /> 
+<meta name="apple-touch-fullscreen" content="yes" />
+<link rel="apple-touch-icon" href="/static/clutch.png"/>
+<meta name="viewport" content="user-scalable=no"/>
+<link rel="shortcut icon" href="/static/clutch.png" type="image/png" />
 <link rel="stylesheet" type="text/css" href="static/css/clutch.css" />
 <script type="text/javascript" src="static/jquery.js"></script>
 <script type="text/javascript" src="static/jquery-ui.js"></script>
@@ -8,69 +14,208 @@
 <script type="text/javascript" src="static/d3.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function(){
-        var activeNumBoxes = [];
-        var active = 0;
-        
         function startstream(){$.eventsource({
             label: "nums",
             url: "/sse-stream/",
             dataType: "json",
             message: function(msg){
-                activeNumBoxes.each(function(i){
+                $(".NumBox").each(function(i){
                     varname = $(this).data('var');
                     if( varname in msg ){
-                        $(this).children(".Data").html(msg[varname]);
+                        $(this).children(".Data").html(Number(msg[varname]).toFixed(2));
                     }
                 });
             }
         });}
         
-        function rollBox(){
-            h = $(window).height();
-            $(activeNumBoxes[active]).animate({top: -h},'slow');
-            active = (active+1)%activeNumBoxes.length;
-            $(activeNumBoxes[active]).css({top: h}).show().animate({top: 0},'slow');
-        }
-        
         function setupNumBoxes(){
-            boxes = $("#Active .NumBox");
-            activeNumBoxes = boxes;
-            boxes.html("<div class='Data'></div><div class='Label'></div>");
-            boxes.each(function(i){
-                $(this).data('var',$(this).attr("id"))
-                $(this).children(".Label")
-                    .html($(this).data("var"))
+            $(".NumBox").html("<div class='Data'>data</div><div class='Label'>label</div>");
+            $(".NumBox").each(function(i){
+                $(this).children(".Label").html($(this).data("var"))
                     .css("font-size",$(this).children(".Label").height()*0.90);
                 $(this).children(".Data")
                     .css( "font-size",$(this).children(".Data").height()*0.80);
-                $(this).click(rollBox);
             });
-            boxes = $('#Available .NumBox');
-            boxes.each(function(i){
-                $(this).data('var',$(this).attr("id"))
-                $(this).html($(this).attr("id"));
-            });
-            for( i=1; i<activeNumBoxes.length; i++ ){
-                $(activeNumBoxes[i]).hide();
-            }
         }
+        
+        
+        var iPhoneAnimation = function(){
+	        var init_x = null;
+	        var init_y = null;
+	        var width = parseInt($(".Box:first").width(), 10);
+	        var height = parseInt($(".Box:first").height(), 10);
+            var flip_thresh = parseInt(width / 3, 10);
+            var vert_thresh = parseInt(height / 3, 10);
+            
+            return{
+                moveInfo: function(e){
+                    
+                
+			        //Correct position in current box
+			        if( e.type === 'touchmove' ){
+			            e.preventDefault();
+                        var pos_x = e.originalEvent.touches[0].pageX - $("#wrap").offset().left;
+                        var pos_y = e.originalEvent.touches[0].pageY - $("#wrap").offset().top;
+                        
+                        
+                    }else{
+                        var pos_x = e.pageX - $("#wrap").offset().left;
+                        var pos_y = e.pageY - $("#wrap").offset().top;
+                    }
+                    
+	        		//Set our initial position, mouse movement now relates to this point
+			        if(init_x === null){
+			            init_x = pos_x;
+			            init_y = pos_y;
+			        }
+			
+		        	//Relative mouse point
+			        var move_x = init_x - pos_x;
+			        var move_y = init_y - pos_y;
+			
+		        	//Move the current container to point
+			        $(this).parent().css({left: -move_x});
+			        $(this).css({top: -move_y});
+			        
+			        var right_neighbor = $(this).parent().next(".ControlGroup");
+			        var left_neighbor = $(this).parent().prev(".ControlGroup");
+			        
+			        //Move the neighbor containers into place
+	        		if(right_neighbor.length  && -move_x < 0){
+	                    right_neighbor.css({left: width - move_x,});
+	        		}else{
+	        		    right_neighbor.css({left: width});
+	        		}
+	        		if(left_neighbor.length  && -move_x > 0){
+	                    left_neighbor.css({left: -width - move_x});
+	        		}else{
+	        		    left_neighbor.css({left: -width});
+	        		}
+	        		
+	        		var dn_neighbor = $(this).next(".Box");
+	        		var up_neighbor = $(this).prev(".Box")
+	        		
+	        		if(dn_neighbor.length && -move_y < 0){
+	        		    dn_neighbor.css({top: height - move_y});
+	        		}else{
+	        		    dn_neighbor.css({top: height});
+	        		}
+	        		if(up_neighbor.length && -move_y > 0){
+	        		    up_neighbor.css({top: -height - move_y});
+	        		}else{
+	        		    up_neighbor.css({top: -height});
+	        		}
+	        		
+		        },
+		        panelAnimate: function($this){
+		            var group = $this.parent();
+		            var left_neighbor = group.prev(".ControlGroup");
+		            var right_neighbor = group.next(".ControlGroup");
+		            var up_neighbor = $this.prev(".Box");
+		            var dn_neighbor = $this.next(".Box");
+
+			        //Grab position the panel was pulled too
+		        	var pan_x = parseInt(group.css("left"), 10);
+		        	var pan_y = parseInt($this.css("top"), 10);
+
+                    if(pan_x < -flip_thresh && right_neighbor.length){
+                        $(".groupLabel").stop(true,true).fadeIn(0);
+                        //User pulled left
+                        //We have a next element to show
+                        group.animate({left: -width});
+                        right_neighbor.animate({left: 0});
+                        $this.animate({top:0});
+                    }else if(pan_x > flip_thresh && left_neighbor.length){
+                        $(".groupLabel").stop(true,true).fadeIn(0);
+                        //User pulled right
+                        //We have a previous element to show
+                        group.animate({left: width});
+                        left_neighbor.animate({left: 0});
+                        $this.animate({top:0});
+                    }else if(pan_y < -vert_thresh && dn_neighbor.length){
+                        //User pulled up
+                        // and we have a next box below
+                        $this.animate({top: -height});
+                        dn_neighbor.animate({top: 0});
+                        group.animate({left:0})
+                    }else if(pan_y > vert_thresh && up_neighbor.length){
+                        //user pulled down
+                        $this.animate({top: height});
+                        up_neighbor.animate({top: 0});
+                        group.animate({left:0})                        
+                    }else{
+                        //Spring Back
+                        group.animate({left: 0});
+                        left_neighbor.animate({left: -width});
+                        right_neighbor.animate({left: width});
+                        //Spring back vert
+                        $this.animate({top: 0});
+                        up_neighbor.animate({top: -height});
+                        dn_neighbor.animate({top: height});
+                    }
+                    
+                    this.fadeLabels();
+        		},
+        		fadeLabels: function(){
+        		    setTimeout(function(){  $(".groupLabel").stop(true,true).fadeOut(2000); }, 500);
+        		},
+		        resetVars: function(){
+			        init_x = null;
+			        init_y = null;
+		        }
+		    };
+		}();     
+	    
+	    $(".Box").bind("mousedown", function(e){
+		    $(this).bind("mousemove", iPhoneAnimation.moveInfo);
+	        });
+	    $(".Box").bind("touchstart", function(e){
+		    $(this).bind("touchmove", iPhoneAnimation.moveInfo);
+	        });
+	    
+	        
+	    $(".Box").bind("mouseup", function(e){
+		    $(this).unbind("mousemove", iPhoneAnimation.moveInfo);
+		    //Animate the panel
+		    iPhoneAnimation.panelAnimate($(this));
+		    iPhoneAnimation.resetVars();
+	        });
+	    $(".Box").bind("touchend", function(e){
+		    $(this).unbind("touchmove", iPhoneAnimation.moveInfo);
+		    //Animate the panel
+		    iPhoneAnimation.panelAnimate($(this));
+		    iPhoneAnimation.resetVars();
+	        });
+	    $(document).bind("mouseleave", function(e){
+	        var from = e.relatedTarget || e.toElement;
+	        if( !from || from.nodeName === "HTML"){
+	            console.log("left window");
+            }
+	        });
+	    iPhoneAnimation.fadeLabels();
         
         setupNumBoxes();
         startstream();
-
-        
         
     });
-
 </script>
 </head>
 <body>
-    <div id="Available">
-        <div class="NumBox" data-var="Time"></div>
+    <div id="wrap">
+    <div id="Settings" class="ControlGroup">
+        <div id="Boat" class="Box" onclick = "void(0)">Boat settings</div>
+        <div class="groupLabel">Settings</div>
     </div>
-    <div id="Active">
-        <div class="NumBox" data-var="TWA"></div>
-        <div class="NumBox" data-var="TWS"></div>
+    <div id="RaceData" class="ControlGroup">
+        <div class="NumBox Box" data-var="TWA" onclick = "void(0)">TWA</div>
+        <div class="NumBox Box" data-var="TWS" onclick = "void(0)">TWS</div>
+        <div class="groupLabel">Race Data</div>
+    </div>
+    <div id="RaceManagement" class="ControlGroup LastGroup">
+        <div id="CourseSetup" class="Box" onclick = "void(0)">Create Course</div>
+        <div id="StartScreen" class="Box" onclick = "void(0)">Start</div>
+        <div class="groupLabel">Race Management</div>
+    </div>
     </div>
 </body>
 </html>
