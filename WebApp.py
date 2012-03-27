@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import  observable
+
 import tornado.web
 import tornado.ioloop
 import threading
@@ -8,28 +10,37 @@ import os.path
 import sys
 import json
 import socket
+import time
+import datetime
+
+# Fallback json encoder
+def default(o):
+    return o.__dict__
 
 import mako.lookup
 mako = mako.lookup.TemplateLookup(directories=['web/templates'],module_directory='web/templates/mako')
 
-class Server(threading.Thread):
+class Server(threading.Thread,observable.Observable):
     def __init__(self, port):
         threading.Thread.__init__(self)
+        observable.Observable.__init__(self)
+        
         self.port = port
         self.streams = set()
         self.data = {}
         self.ioloop = tornado.ioloop.IOLoop.instance()
         
         self.app = tornado.web.Application([
-            (r"/stream/",InstStream,dict(streams=self.streams)),
+            (r"/timesync/",TimeStream),
             (r"/sse-stream/",SSEStream,dict(streams=self.streams)),
             (r"/static/(.*)",tornado.web.StaticFileHandler,{"path":"web/static"}),
             (r"/",MainHandler),
             (r"/ios",iOSHandler),
-        ])
+            (r"/ping",PingHandler,dict(server=self)),
+            (r"/log",LogHandler),
+            ])
         
         self.app.listen(self.port)
-
         
     def run(self):
         print "tornado started on %s:%d" % (socket.gethostname(),self.port)
@@ -47,7 +58,7 @@ class Server(threading.Thread):
         self.data.update(data)
             
     def send(self):
-        if self.data:
+        if self.data and self.streams:
             for s in self.streams:
                 s(data=self.data,source="")
             self.data = {}
@@ -62,29 +73,26 @@ class iOSHandler(tornado.web.RequestHandler):
         temp = mako.get_template('ios.html')
         self.write(temp.render())
         
-# Deprecated        
-class InstStream(tornado.web.RequestHandler):
-    @tornado.web.asynchronous
-    def initialize(self,streams):
-        print "initstart"
-        self.streams = streams
-        streams.add(self.streamUpdate)
-        print "new stream"
+class PingHandler(tornado.web.RequestHandler):
+    def initialize(self, server):
+        self.notifyObservers = server.notifyObservers
         
-    def get(self):
-        pass
-        
-    def streamUpdate(self,source,data):
-        self.write("<script type='text/javascript'>parent.updatePage( '%s' )</script>" % json.dumps(data))
-        self.flush()
-        
-    def stream_close(self):
-        self.streams.difference_update([self.streamUpdate])
-        self.finish()
-        
-    def on_connection_close(self):
-        print "client stream disconnect"
-        self.streams.difference_update([self.streamUpdate])
+    def post(self):
+        object = self.get_argument('object','Unknown') # Get the name of the pinged object
+        ping_time = float(self.get_argument('time', '0')) # Get time of ping
+        if ping_time == 0:
+            ping_time = datetime.datetime.now()
+        else:
+            ping_time = datetime.datetime.fromtimestamp( ping_time )
+        ping_data = { 'event_type': "ping",
+                      'object':     object,
+                      'time':       ping_time,
+                    }
+        self.notifyObservers(data=ping_data)
+
+class LogHandler(tornado.web.RequestHandler):
+    def post(self):
+        print str(datetime.datetime.now()) + ": " + self.get_argument('text','')
         
 class SSEStream(tornado.web.RequestHandler):
     @tornado.web.asynchronous
@@ -94,13 +102,12 @@ class SSEStream(tornado.web.RequestHandler):
         print "New connection from %s" % self.request.remote_ip
         
     def get(self):
-
         self.write(":SSE Stream from Clutch\n\n")
         self.set_header('Content-Type', 'text/event-stream')
         self.flush
         
     def streamUpdate(self,source,data):
-        self.write("data:%s\n\n" % json.dumps(data))
+        self.write("data:%s\n\n" % json.dumps(data,default=default))
         self.flush()
         
     #def stream_close(self):
@@ -109,7 +116,25 @@ class SSEStream(tornado.web.RequestHandler):
         
     def on_connection_close(self):
         print "Closed connection with %s" % self.request.remote_ip
-        self.streams.difference_update([self.streamUpdate])
+        #self.streams.difference_update([self.streamUpdate])
+        
+class TimeStream(tornado.web.RequestHandler):
+    @tornado.web.asynchronous
+    def initialize(self):
+        self.scheduler = tornado.ioloop.PeriodicCallback(self.sendTime,1000 )
+        self.scheduler.start()
+
+    def get(self):
+        self.write(":TimeSync\n\n")
+        self.set_header('Content-Type', 'text/event-stream')
+        self.flush
+        
+    def sendTime(self):
+        self.write("data:%s\n\n" % json.dumps(time.time()))
+        self.flush()
+        
+    def on_connection_close(self):
+        self.scheduler.stop()
         
 if __name__ == "__main__":
     web = Server()

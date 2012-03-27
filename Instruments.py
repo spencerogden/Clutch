@@ -11,6 +11,10 @@ import threading
 import random
 import time
 import csv
+import math
+import sys
+
+import geo
 
 import observable
 import varmaps
@@ -20,20 +24,61 @@ class Instruments(observable.Observable):
         super(Instruments,self).__init__()
         self.name = name
         self.data = {}
-#        self.observers = []
-            
-#     def dataUpdate(self,data,source):        
-#         self.data.update(data)
-#         self.notifyObservers(data)
-#         for obs in self.observers:
-#             obs(data=data,source=source)
-#                 
-#     def addObserver(self,observerFunction):
-#         self.observers.append(observerFunction)
-#        
-#     def removeObserver(self,observerFunction):
-#         self.observers.remove(observerFunction)    
+
+class SimulatorInstruments(Instruments,threading.Thread):
+    def __init__(self,name):
+        threading.Thread.__init__(self)
+        Instruments.__init__(self,name)
+        self.halt = False
+        
+    def stop(self):
+        self.halt = True
     
+    def run(self):
+        print "Instrument Simulator Started"
+        t = 0
+        pos = geo.Position(lat=0,lon=0)
+        while not self.halt:
+            
+            time.sleep(0.01)
+            t = (t+1) % sys.maxint
+            
+            twd = math.sin(t/1000.0)*15 
+            tws = math.sin(t/2000.0)*5 + 12.5
+            
+            base_heading = 90 * ((t/500) % 4 +1) - 45 + twd
+            heading = base_heading + math.sin(t/50.0)*2 # in true
+            
+            base_boatspeed = 9 + cmp( abs(base_heading), 90)*2
+            bsp = base_boatspeed + math.sin(t/100.0)*.25
+            
+            twa = 180 - ( heading - twd + 180 ) % 360 
+            y = math.radians(90 - abs(twa)) # perform trig in absolute angles
+            a = tws * math.cos(y)
+            b = tws * math.sin(y)
+            bb = bsp + b
+            awa = math.degrees(math.radians(90) - math.atan( bb/a)) * cmp(twa,0) # recover sign of angle
+            aws = (a**2 + bb**2)**0.5
+            
+            pos = pos.pos_at_range_bearing( 0.01*bsp, heading )
+            
+            newdata = {
+                'Bsp': bsp,
+                'Hdg': heading,
+                'TWA': twa,
+                'TWS': tws,
+                'TWD': twd,
+                'AWA': awa,
+                'AWS': aws,
+                'Lat': pos.lat,
+                'Lon': pos.lon,
+                'Pos': pos,
+                }
+                
+            self.notifyObservers(newdata)
+            
+            #print "twd:%3.0f tws:%3.2f hdg:%3.0f bsp:%4.2f twa:%3.0f awa:%3.0f aws:%4.2f pos:%s" % \
+            #    (twd,tws,heading,bsp,twa,awa,aws,pos)
         
 class RandomInstruments(Instruments,threading.Thread):
     def __init__(self,name,num):
@@ -43,7 +88,7 @@ class RandomInstruments(Instruments,threading.Thread):
         self.num = num
         
     def run(self):
-        print self.name + " Random Instrument monitor started\n"
+        print self.name + " Random Instrument monitor started"
         newdata = {'source': self.name}
         time.sleep(int(random.random()*5))
         while not self.halt:
@@ -52,7 +97,7 @@ class RandomInstruments(Instruments,threading.Thread):
                 newdata['rand'+str(i)] = random.random() * 10
             self.notifyObservers(newdata)
 
-        print self.name + " Random Instrument monitor stopped\n"
+        print self.name + " Random Instrument monitor stopped"
             
     def stop(self):
         self.halt = True
@@ -78,8 +123,7 @@ class LogReaderInstruments(Instruments,threading.Thread):
                     break
                 newdata.update(dict((k, rawdata[k]) for k,v in rawdata.iteritems() if not(v == '' or v == None)))
                 self.notifyObservers(map.frm(newdata))
-                #print '.'
-            print "Restarting log " + self.file
+
             self.fh.seek(0)
             
     def stop(self):

@@ -28,7 +28,7 @@ class Broadcaster(threading.Thread):
         self.halt = False
         self.map = varmaps.ExpeditionNumMap()
         
-    def networkUpdate(self,data,source):
+    def networkUpdate(self,data):
         with self.datalock:
             self.curdata.update(self.map.to(data))
     

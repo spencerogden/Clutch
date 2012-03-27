@@ -26,6 +26,11 @@ class Observable (object):
                 del self._observers[key][callback.im_self]
             except AttributeError:
                 del self._observers[key][callback]
+                
+    def is_subscribed(self, callback):
+        # Currently not working
+        return callback in self._observers.keys()
+        
         
     def notifyObservers(self, data):
         notified = set()

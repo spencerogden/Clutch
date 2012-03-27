@@ -5,6 +5,9 @@
 # Map from converts data from other to Clutch
 # Map to converts
 
+# Bind functions to each variable to transfor if neccessary to internal rep
+#   for instance string Lat to float Lat.
+
 ClutchVars = {
     'Bsp': 'Boatspeed',
     'Hdg': 'Heading',
@@ -12,8 +15,12 @@ ClutchVars = {
     'COG': 'Course Over Ground',
     'TWA': 'True Wind Angle',
     'TWS': 'True Wind Speed',
+    'TWD': 'True Wind Direction (True)',
     'AWA': 'Apparent Wind Angle',
     'AWS': 'Apparent Wind Speed',
+    'Lat': 'Latitude of boat bow',
+    'Lon': 'Longitude of boat bow',
+    'Pos': 'Internal representation of boat bow position',
     }
 
 class Map(object):
