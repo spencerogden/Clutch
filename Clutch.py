@@ -52,11 +52,14 @@ insts = Instruments.InstrumentsMerge()
 # Instrument tester simulating boat sailing around
 sim_insts = Instruments.SimulatorInstruments('sim')
 insts.addInstruments(sim_insts)
+exp_insts = Instruments.ExpeditionUDPInstruments('expedition')
+insts.addInstruments(exp_insts)
+
 
 # Create Clutch components
 web = WebApp.Server(5011)
 core = Core.ClutchCore()
-udp = Broadcast.Broadcaster(5010)
+udp = Broadcast.Broadcaster(5013)
 log = Logger.Logger('log.sqlite')
 log.set_log_name("Testing")
 
@@ -72,8 +75,8 @@ core.subscribe(log.update) # Core sends data to Logger
 web.start()
 
 # Set some marks for testing
-core.course.port_end = Core.Mark(name="Pin",position=geo.Position(0,-0.001))
-core.course.star_end = Core.Mark(name="Boat",position=geo.Position(0,+0.001))
+core.course.set_port_end( Core.Mark(name="Pin",position=geo.Position(0,-0.001)) )
+core.course.set_star_end( Core.Mark(name="Boat",position=geo.Position(0,+0.001)) )
 
 print "ClutchControl %s started" % VERSION
 
@@ -117,6 +120,20 @@ class Console(cmd.Cmd,object):
             print "Subscribing Log db"
             insts.subscribe(log.update)
         self.logging = not self.logging
+        
+    def do_calc(self,line):
+        print core.var(line,True)
+        
+    def do_var(self, line):
+        for v in line.split(" "):
+            res = core.var(v, False)
+            if res is not None:
+                print res
+            else:
+                print "No such variable"
+    
+    def do_data(self,line):
+        print core.data
             
     def consoleUpdate(self,data):
         for d in data.keys():

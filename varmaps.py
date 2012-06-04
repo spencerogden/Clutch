@@ -29,7 +29,7 @@ class Map(object):
         self.revmap = {}
 
     def frm(self,data):
-        return dict((self.map[k] if k in self.map else k,v) for k,v in data.iteritems())
+        return dict((self.map[str(k)] if str(k) in self.map else k,v) for k,v in data.iteritems())
 
     def to(self,data):
         if self.revmap == {}:

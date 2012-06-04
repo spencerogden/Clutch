@@ -1,5 +1,10 @@
 import sys,os,glob,threading,time,types
 
+#TODO
+#Clutchfunc should have direct access to the tablelibrary object and the Course object so that these can be called 
+#so that they can be imported and called directly by functions if needed.
+#They don't need to be included in the dependency system, because they change so infrequently.
+
 # How to use:
 # import ClutchFunc
 # Load functions and start the monitor: ClutchFunc.load_and_monitor(<directory to monitor>)
@@ -24,8 +29,9 @@ def loadFuncs(directory):
             print "Importing",filename,":",
             try:
                 clutchfunc.modules.append(__import__(filename))
-            except:
-                print "Error loading %s, try correcting the error and resave. Error: %s" % (filename, sys.exc_info()[0])
+            except SyntaxError as e:
+                print "Error loading %s, try correcting the error and resave. Error: %s" % (filename, e)
+                print "Line> %s" % e.text
             else:
                 clutchfunc.modules[-1].__fullfile__ = f
                 try:
@@ -59,8 +65,18 @@ def rescanFuncs():
                     reload(m)
                     print
                     m.__mtime__ = stat.st_mtime
-                except:
-                    print "Error reloading %s, try to correct the error and resave, the correction will be reloaded: %s" % (m.__fullname__,sys.exc_info()[0]) 
+                except SyntaxError as e:
+                    print "Error reloading %s, try to correct the error and resave, the correction will be reloaded: %s" % (m.__fullname__,e) 
+                    print "Line>%s" % e.text
+            
+def runFunc(func, data):
+    if func not in clutchfunc.funcs.keys():
+        print "No such function",func
+    f = clutchfunc.funcs[func]
+    if f.dependencies.issubset(data.keys()):
+        return f(**dict([ (k,data[k]) for k in f.dependencies ]))
+    else:
+        print "Don't have all of the dependencies for",func
             
 def runFuncs(data,changed=None,unchanged=None):
     # data is the data required to calc
@@ -98,19 +114,24 @@ def runFuncs(data,changed=None,unchanged=None):
                 # All of this fucntions dependencies are in a known state, we can calc
                 #inputs = map(dict(data.items() + new_data.items()).get,f.dependencies)
                 #inputs = dict([ (k,data[k]) for k in f.dependencies ])
-                try:
-                    res = f(**dict([ (k,data[k]) for k in f.dependencies ])) # Extract needed inputs from available data
-                except:
-                    print "Error running function: %s, try implementing a fix in %s. Dependents will likely fail. : %s" % (f.__name__, f.__module__,sys.exc_info()[0])
-                else:
-                    new_data[f.target] = res
-                    data[f.target] = res
-                    ch.add(f.target)
+                #try:
+                res = f(**dict([ (k,data[k]) for k in f.dependencies ])) # Extract needed inputs from available data
+                #except:
+                #    print "Error running function: %s, try implementing a fix in %s. Dependents will likely fail. : %s" % (f.__name__, f.__module__,sys.exc_info()[0])
+                #else:
+                if type(res) is not dict:
+                    res = {f.target: res}
+                    
+                new_data.update(res)
+                data.update(res)
+                ch.update(res.keys())
                 pos += 1
             else:
                 # Dependency are unknown, try to wait for later, move to end of list
                 if f in seen:
-                    print "Function error, all functions tried and inputs of",f.target,"not found"
+                    #print "Function error, all functions tried and inputs of",f.target,"not found. Data is",data
+                    #Dependencies are not available for this function, will not calc
+                    # Consider if None should be returned for these functions
                     break
                 del clutchfunc.func_order[pos]
                 clutchfunc.func_order.append(f)
@@ -164,7 +185,7 @@ class clutchfunc(object):
         if f.__name__ in clutchfunc.funcs:
             print "Variable name must be unique (func will not load):",f.__name__," in ",f.__module__
         else:
-            print f.__name__,
+            #print f.__name__,
             f.target = f.__name__
             f.dependencies = set(f.func_code.co_varnames[:f.func_code.co_argcount])
             self.func = f

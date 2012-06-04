@@ -14,25 +14,19 @@ import sys
 
 class Point:
     def __init__(self,x,y=None,z=None):
-        print "Creating point with x %r, y %r, z %r" % (x,y,z)
         if isinstance(x, tuple):
-            print "x is a tuple"
             self.x = x[0]
             self.y = x[1]
             if len(x) == 3:
                 self.z = x[2]
         elif isinstance(x, Point):
-            print "x is a Point"
             self.x = x.x
             self.y = x.y
             self.z = x.z
         else:
-            print "x,y,z supplied"
             self.x = x
             self.y = y
             self.z = z
-            
-        print "New Point (%r,%r,%r)" % (self.x,self.y,self.z)
         
 class Edge:
     def __init__(self,p1,p2):
@@ -68,45 +62,49 @@ class Triangle:
     def other_edges(self,edge):
         return [e for e in self.edges if e != edge]
 
-class Polars(object):
+class Table(object):
     def __init__(self):
-        self.simple_polars = {
-            0:  {0: 0, 35: 0,   45: 0.0, 60: 0.0, 90: 0, 120: 0.0, 145:  0.0, 180: 0.0}, 
-            10: {0: 0, 35: 7.0, 45: 8.0, 60: 8.5, 90: 9, 120: 9.5, 145: 10.5, 180: 8.0},
-            20: {0: 0, 35: 8.0, 45: 9.0, 60: 9.5, 90: 10, 120: 10.5, 145: 11.5, 180: 9.0},
-            }
-        self.simple_polars = {
-            0.0: {0.0:0, 90.0:0},
-            10.0:{0.0:0, 90.0:10},
-        }
-        
         self.defined_points = []
-        # dict with points as keys, set of edges containin point as value
-        for tws in self.simple_polars.keys():
-            for twa in self.simple_polars[tws].keys():
-                self.defined_points.append((tws,twa,self.simple_polars[tws][twa]))
-                
-        self.points = dict.fromkeys(self.defined_points)
         self.edges = {}
+        self.points = {}
+        self.interp_table = {}
+        self.up_targs = dict()
+        self.dn_targs = dict()
+        
+    def rebuild_table(self, targets=False):             
+        self.points = dict.fromkeys(self.defined_points)
         
         # dict of edges as keys with containing triangles as values
         self.defined_triangles = delaunay(self.defined_points)
         self.triangles = self.defined_triangles
         
-        #defiend_points and defined_triangles are the original inputs
-        #further interpolation should store values in points, edges, and triangles
-        
         self.buildIndex()
         
-        self.interp_polars = {}
-        self.polartws = sorted(self.simple_polars.keys())
-        #self.polars[float('inf')] = self.polars[self.polartws[-1]]
-        #self.polartws.append(float('inf'))
-        
-    def getTarget( self, tws, twa ):
+        # if targets:
+#             # Find and cache targets
+#             self.up_targs = [(0,0)] * 30 # Set targets for each TWS up to 30 knots
+#             self.dn_targs = [(0,0)] * 30
+#             for tws in xrange(len(self.up_targs)):
+#                 for twa in xrange(0,180):
+#                     bsp = self.lookup(tws,twa)
+#                     if bsp:
+#                         up_vmg = math.cos(math.radians(twa)) * bsp
+#                         dn_vmg = math.cos(math.radians(180-twa)) * bsp
+#                         if up_vmg > self.up_targs[tws][0]: 
+#                             self.up_targs[tws] = (bsp,twa)
+#                         if dn_vmg > self.dn_targs[tws][0]:
+#                             self.dn_targs[tws] = (bsp,twa)
+#     
+    def move_point( self, tws, twa, value ):
+        """Find point in list of defined points and move if it exists"""
+        # Move point and then rebuild and smooth table
         pass
         
-    def interpPolar( self, tws, twa):
+    def add_point( self, tws, twa, value ):
+        """Add point to set of defined points"""
+        self.defined_points.append((tws,twa,value))
+        
+    def lookup( self, tws, twa):
         for t in self.triangles:
             point = Point(tws,twa)
             v0 = (t.p3.x  - t.p1.x,  t.p3.y - t.p1.y)
@@ -132,6 +130,43 @@ class Polars(object):
                 return z0 + v*(z1-z0) + u*(z2-z0)
         return None # point is not within the defined area
         
+    def lookup_targs(self, tws):
+        tws_low = int(math.floor(tws))
+        tws_high = int(math.ceil(tws))
+        
+        def find_targ(tws,dir): #dir +1 for upwind, -1 for downwind
+            min = 15.0
+            max = 180.0
+            while max - min > 0.1 :
+                mid = (max+min)/2.0
+                low_mid  = (mid+min)/2.0
+                high_mid = (max+mid)/2.0
+                low_bsp  = self.lookup(tws, low_mid)
+                high_bsp = self.lookup(tws,high_mid)
+                
+                low_vmg  = math.cos(math.radians(low_mid )) *  low_bsp
+                high_vmg = math.cos(math.radians(high_mid)) * high_bsp
+                
+                if dir*low_vmg > dir*high_vmg:
+                    # Max exists in lower segment
+                    max = mid
+                else:
+                    min = mid
+            return (self.lookup(tws, min), min)
+        
+        up_low  = self.up_targs.setdefault( tws_low , find_targ(tws_low, 1) )
+        up_high = self.up_targs.setdefault( tws_high, find_targ(tws_high, 1) )
+        dn_low  = self.dn_targs.setdefault( tws_low , find_targ(tws_low,-1) )
+        dn_high = self.dn_targs.setdefault( tws_high, find_targ(tws_high,-1) )
+
+
+        class targs:
+            bsp_up = (up_low[0] + up_high[0]) / 2
+            twa_up = (up_low[1] + up_high[1]) / 2
+            bsp_dn = (dn_low[0] + dn_high[0]) / 2
+            twa_dn = (dn_low[1] + dn_high[1]) / 2
+        return targs
+    
     def buildIndex(self):
         self.edges = {}
         self.points = {}
@@ -154,7 +189,7 @@ class Polars(object):
                     else:
                         self.points[p] = set({e})
                     
-    def refine_polars(self):
+    def refine_table(self):
         for e in self.edges.keys():
             # Set new point to midpoint, including z (bsp)
             new_point = Point((e.p1.x + e.p2.x) /2.0, 
@@ -184,8 +219,23 @@ class Polars(object):
             self.points[new_point] = set()
         self.defined_triangles = delaunay(points.keys())
         self.buildIndex()
-                
-    
+        
+    def __str__(self):
+        """Output table is a readable format"""
+        rows = {}
+        for p in self.defined_points:
+            # Collect points into rows with the same tws
+            # Then order from low to high 
+            rows.setdefault(p[0], []).append((p[1],p[2]))
+        lines = []
+        for tws in rows.keys():
+            row_points = rows[tws]
+            row_points = sorted(row_points, lambda x,y: cmp(x[0],y[0]))
+            row_points = list(item for iter_ in row_points for item in iter_)
+            row_points.insert(0,tws)
+            #lines.append("\t".join(row_points))
+        return "\n".join(lines)
+        
 def is_in_triangle(point,triangle):
     t = triangle
     v0 = (t.e2.x - t.e1.x,   t.e3.y - t.e1.y)
@@ -212,9 +262,6 @@ def delaunay(points):
     triangles = []
     #and en empty list to store vertexes in order
     vertex = []
-    
-    for p in points:
-        print p
     
     ##we need to start with a supertriangle which encompasses all the points
     ##this is done by getting the minimum and maximum bounds of all points
@@ -308,8 +355,6 @@ def delaunay(points):
     
     ###FINAL STEP
     # Filter triangle to remove triangles with are part of the super triangle and put into Triangle objects
-    for v in vertex:
-        print v
     triangles = [Triangle(vertex[i1],vertex[i2],vertex[i3]) for (i1,i2,i3) in triangles if i1 < numPoints and i2 < numPoints and i3 < numPoints]
             
     return triangles

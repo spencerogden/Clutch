@@ -4,65 +4,358 @@
 <title>Clutch</title>
 <meta name="apple-mobile-web-app-capable" content="yes" /> 
 <meta name="apple-touch-fullscreen" content="yes" />
+
+<meta name="viewport" content="width=device-width, minimum-scale=1, maximum-scale=1"> 
+
 <link rel="apple-touch-icon" href="/static/clutch.png"/>
-<meta name="viewport" content="width=1024, initial-scale=1.0,user-scalable=no"/>
+<!--<meta name="viewport" content="width=1024, initial-scale=1.0,user-scalable=no"/>-->
 <link rel="shortcut icon" href="/static/clutch.png" type="image/png" />
 
-<link rel="stylesheet" type="text/css" href="static/css/clutch.css" />
+<link rel="stylesheet" type="text/css" href="static/css/clutch.css?5" />
+<link rel="stylesheet" type="text/css" href="static/css/ClutchTheme.css?1" />
+<link rel="stylesheet" type="text/css" href="static/jquery.mobile-1.0.1.css?2" />
+<link rel="stylesheet" type="text/css" href="static/jquery.mobile.scrollview.css" />
+
 
 <script type="text/javascript" src="static/jquery.js"></script>
 <!--<script type="text/javascript" src="static/jquery-ui.js"></script>-->
 <script type="text/javascript" src="static/jquery.eventsource.js"></script>
 <script type="text/javascript" src="static/jquery-gridslide.js"></script>
 <script type="text/javascript" src="static/d3.min.js"></script>
+<script type="text/javascript" src="static/jquery.mobile-1.0.1.js"></script>
 
 <script type="text/javascript">
-  $(document).ready(function(){
-  function startstream(){$.eventsource({
-  label: "nums",
-  url: "/sse-stream/",
-  dataType: "json",
-  message: function(msg){
-  $(".NumBox").each(function(i){
-  varname = $(this).data('var');
-  if( varname in msg ){
-  $(this).children(".Data").html(Number(msg[varname]).toFixed(2));
-  }
-  });
-  }
-  });}
+
+    $(document).ready(function(){
+        function log(string){
+            $.post('log',{text: string});
+            console.log(string);
+        }
+    
+        function startstream(){$.eventsource({
+            label: "nums",
+            url: "/sse-stream/",
+            dataType: "json",
+            message: function(msg){
+                $("div.NumBox[data-var]").each(function(i){
+                    varname = $(this).data('var');
+                    if( varname in msg ){
+                        $(this).children(".Data").html(Number(msg[varname]).toFixed(2));
+                    }
+                });
+            }
+            
+            });
+        }
+
+ 
+        $.event.special.swipe.verticalDistanceThreshold = 20;
+        $.event.special.swipe.horizontalDistanceThreshold = 50;
+        
+        var time_offset = 0; //Positive means there is positive lage or clients clock is fast
+        var server_time_utc = 0;
+        var client_time = 0;
+        $.eventsource({
+             label: "time",
+             url: "/timesync/",
+             dataType: "json",
+             message: function(msg){
+                 server_time_utc = new Date(msg*1000); //Server sends in seconds since epoch
+                 client_time = new Date();
+                 time_offset = client_time - server_time_utc;
+             }
+         });
+    
   
+
   function setupNumBoxes(){
-  $(".NumBox").html("<div class='Data'>data</div><div class='Label'>label</div>");
-  $(".NumBox").each(function(i){
-  $(this).children(".Label").html($(this).data("var"))
-  .css("font-size",$(this).children(".Label").height()*0.90);
-  $(this).children(".Data")
-  .css( "font-size",$(this).children(".Data").height()*0.80);
-  });
-  }
+    $(".NumBox").html("<div class='Data'>data</div><div class='Label'>label</div>");
+    $(".NumBox")
+        
+        .each(function(i){
+        $(this).children(".Label").html($(this).data("var"));
+        });
+    }
   
-  $('#grid').gridslide();
+  //$('div.ui-page').live("swiperight",function(e){
+  //  $( document ).unbind( "scrollstop" , snapNumBox );
+  //  $.mobile.changePage($("#home"),{transition:'slide',
+  //                                  reverse: true});
+  //  });
   
-  setupNumBoxes();
-  startstream();
+  function resizeNumBoxes(){
+    log("resize numboxes");
+    $(".NumBox").css("height", $(window).height() )
+        .children(".Label")
+            .css("font-size",$(this).height()*0.15).end()
+        .children(".Data")
+            .css( "font-size",Math.min($(this).height()*.80,$(this).width()*0.25))
+    }
   
+    var current_box = 0; // Which box was showing when we left the numbers page
+    function snapNumBox(){
+        
+        current_box = Math.round(window.scrollY/$(window).height());
+        // Can't get animated snap to work with firing infinite scroll events. 
+        //$("body").animate({scrollTop : $(window).height() * current_box },'fast');
+        // Functional but not pretty
+        $.mobile.silentScroll($(window).height() * current_box);
+    }
+  
+    $( "#numbers" ).bind( "pageshow", function(event, data){    
+        $( document ).bind( "scrollstop" , snapNumBox );
+    });
+ 
+    $( "#numbers" ).bind( "pagebeforeshow", function(event, data){
+        resizeNumBoxes();
+        startstream();
+        
+        $( window   ).bind("resize"      , resizeNumBoxes );
+        
+    });
+    
+    function popupHeader(){
+        log("popup");
+        $("#numbers .ui-header").stop().fadeIn(0);
+        $("#numbers .ui-header").delay(2500).fadeOut("slow");
+    }
+    
+    $( "#numbers" ).bind("click", popupHeader );
+
+    $( "#numbers" ).bind( "pagebeforeshow" , popupHeader );
+
+    $( "#numbers" ).bind( "pageshow", function(event, data){
+        $.mobile.silentScroll($(window).height() * current_box);
+    });
+    
+    $( "#numbers" ).bind( "pagebeforehide", function(){
+        //Stop streaming ? 
+        $( document ).unbind( "scrollstop" , snapNumBox );
+        $( window   ).unbind( "resize"     , resizeNumBoxes );
+        });
+
+    // Three ways to trigger ping
+    // 1 - Tap and hold
+    var tap_start_time = 0;
+    var ping_time = 0;
+    var ping_page = 0;
+    $( document ).bind("vmousedown", function(){ tap_start_time = new Date(); });
+    $( document ).bind("taphold" , function(e,ui){ log("taphold"); capturePing(tap_start_time,true)} );
+    
+    // 2 - Double click, no good over buttons
+    var first_tap_time = 0;
+    var first_tap_x = 0;
+    var first_tap_y = 0;
+    $( document ).bind("tap", function(event, ui){
+        if( first_tap_time == 0 ){
+            // This is the first click
+            first_tap_time = new Date();
+            first_tap_x = event.screenX;
+            first_tap_y = event.screenY;
+            setTimeout(function(){first_tap_time = 0}, 500);
+        }else{
+            // This is the second or greater click in 500ms
+            if( Math.abs( first_tap_x - event.screenX ) + 
+                Math.abs( first_tap_y - event.screenY ) < 50 ){
+                capturePing(first_tap_time,false);
+            }
+            first_tap_time = 0;
+            first_tap_x = 0;
+            first_tap_y = 0;
+        }
+    });
+    
+    // 3 - Click Ping button on ping tab
+    $( "#pingbutton" ).click(capturePing);         
+    
+    function capturePing(time,inter_screen){
+        ping_time = new Date(time.getTime() - time_offset);
+        log("ping time   " + ping_time);
+        $(".pingtime").html(ping_time.toUTCString());
+        
+        // Define where to go after ping action is complete
+        if( $.mobile.activePage.attr("id") == "ping" ){
+            ping_page = "home";
+        }else{
+            ping_page = $.mobile.activePage.attr("id");
+        }
+        
+        if( inter_screen ){
+            $.mobile.changePage('#pingdialog', {transition: 'pop', role: 'dialog'});
+        
+            $(document).bind('vmouseup', function(){
+                $.mobile.changePage($("#whatping"),{transition:'slide',
+                                              reverse: true});
+                $(document).unbind('vmouseup');
+            });
+        }else{
+            $.mobile.changePage($("#whatping"),{transition:'slide',
+                                              reverse: true});
+        }
+    }
+    
+          
+    
+    function registerPing( obj, time ){
+        $.post('ping',{object: obj,time: ping_time.getTime()/1000});
+    }
+    
+    $( "#pingobjects a" ).bind("click", function( event, ui ){
+        registerPing( $(this).text(), ping_time );    
+        $.mobile.changePage("#" + ping_page);
+        ping_page = 0;
+        });
+        
+    $( "#cancel" ).click(function(){
+        log("cancel");
+        $.mobile.changePage("#" + ping_page);
+        ping_time = 0;
+        return false;
+        }
+    );
+    
+    // Start Screen
+    $( window ).bind("resize", function(){
+        $('#toprow').css("height",$(window).height()*.30);
+        $('#botrow').css("height",$(window).height()*.70);
+    });
+    
+    setupNumBoxes();
   });
 </script>
 </head>
 <body>
-  <div id="grid">
-    <div class="BoxGroup" title="Settings">
-      <div id="Boat" class="Box">Boat settings</div>
+    <div id="home" data-role="page">
+        <div data-role="header" data-position="fixed">
+            <h1>Clutch</h1>
+        </div>
+        <div data-role="content">
+            <ul data-role="listview">
+                <li><a href="#numbers" data-transition="slide">Numbers</a></li>
+                <li><a href="#start" data-transition="slide">Start</a></li>
+                <li><a href="#course" data-transition="slide">Set Course</a></li>
+                <li><a href="#ping" data-transition="slide">Prepare to Ping</a></li>
+            </ul>
+        </div>
+        <div data-role="footer" data-position="fixed">
+            <a href="#settings" data-role="button" data-mini="true">Settings</a>
+        </div>
     </div>
-    <div id="RaceData" class="BoxGroup" title="Race Data">
-      <div class="NumBox Box" data-var="TWA">TWA</div>
-      <div class="NumBox Box" data-var="TWS">TWS</div>
+    <div id="numbers" data-role="page">
+        <div data-role="header" data-position="fixed">
+            <a href="#home" data-role="button" data-mini="true" data-icon="arrow-l" data-transition="slide" data-direction="reverse">Home</a>
+            <h1>Numbers</h1>
+        </div>
+        <div data-role="content" data-scroll="yp">
+            <div class="NumBox" data-var="TWA">TWA</div>
+            <div class="NumBox" data-var="TWS">TWS</div>
+        </div>
     </div>
-    <div id="RaceManagement" class="BoxGroup" title="Race Management">
-      <div id="CourseSetup" class="Box">Create Course</div>
-      <div id="StartScreen" class="Box">Start</div>
+    <div id="start" data-role="page">
+        <div data-role="content">   
+            <div id="toprow" class="ui-grid-b">
+                <div class="ui-block-a">
+                    <div class="NumBox" data-var="StartTimePrt">Time to Pin</div>
+                </div>
+                <div class="ui-block-b">
+                    <div class="NumBox" data-var="StartTimeLine">Time to Line</div>
+                </div>
+                <div class="ui-block-c">
+                    <div class="NumBox" data-var="StartTimeStb">Time to Boat</div>
+                </div>
+            </div>
+            <div id="botrow" class="ui-grid-a">
+                <div class="ui-block-a">
+                    <div class="NumBox" data-var="StartTimeGun">Time to Gun</div>
+                </div>
+                <div class="ui-block-b">
+                    <div class="NumBox" data-var="StartTimeBurn">Time to Burn</div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
+    <div id="course" data-role="page">
+        <div data-role="header" data-position="fixed">
+            <a href="#home" data-role="button" data-mini="true" data-icon="arrow-l" data-transition="slide" data-direction="reverse">Home</a>
+            <h1>Course Settings</h1>
+        </div>
+        <div data-role="content">
+            <ul>
+                <li>Length</li>
+                <li>Bearing</li>
+                <li>Type</li>
+            </ul>
+        </div>
+    </div>
+    <div id="ping" data-role="page">
+        <div data-role="header" data-position="fixed">
+            <a href="#home" data-role="button" data-mini="true" data-icon="arrow-l" data-transition="slide" data-direction="reverse">Home</a>
+            <h1>Ping</h1>
+        </div>
+        <div data-role="content">
+            <a data-role="button" id="pingbutton">Ping Now</a>
+        </div>
+
+    </div>
+    <div id="whatping" data-role="page">
+        <div data-role="header" data-position="fixed">
+            <h1>What was That?</h1>
+        </div>
+        <div data-role="content"> 
+            <ul data-role="listview" data-inset="true" id="pingobjects">
+                <li data-icon="false"><a>Port End</a></li>
+                <li data-icon="false"><a>Starboard End</a></li>
+                <li data-icon="false"><a>Windward Mark</a></li>
+                <li data-icon="false"><a>Leeward Mark</a></li>
+            </ul>
+            Ping was at: <span class="pingtime"></span>
+            <a data-role="button" data-theme="a" id="cancel">Cancel</a>
+        </div>
+    </div>
+    <div id="settings" data-role="page">
+        <div data-role="header" data-position="fixed">
+            <a href="#home" data-role="button" data-mini="true" data-icon="arrow-l" data-transition="slide" data-direction="reverse">Home</a>
+            <h1>Clutch Settings</h1>
+        </div>
+        <div data-role="content">
+            <ul>
+                <li>Boat Length</li>
+                <li>Boat Width</li>
+            </ul>
+        </div>
+    </div>
+    <div id="pingdialog" data-role="dialog">
+        Release to finish ping</br>
+        <span class="pingtime"></span>
+    </div>
+
 </body>
 </html>
+
+
+<!-- TODO
+    4. Inject course data into data before passing to Core functions. 
+    5. Layout Start screen and see how to incorporate streaming, reuse number boxes?
+        a. Important start nums: Time to Gun, Time to Burn, Time to Line, Line Bias, Time to Pin, Time to Boat, Line Length
+        b. After start, large distance in front/behind line
+        c. If over, display to help getting back to line, time till stern clear, button to declare clear
+        d. If clear, flip to Numbers tab
+    6. Design interface for clock control. Double tap on clock to bring up detailed controls. 
+        a. Integrate clock start with long tap
+        b. Detailed clock control accessible from Start screen or main menu
+        c. Controls, Stop, Start, Sync, advance/reverse 0.5, 1 2 5 secs. Set to 4, 5, 6, 10 mins or custom
+        d. Start clock on race
+    7. Add clock controls to ping interface
+    8. Implement Settings page and communicate settings back to server.
+    9. Course setup and adjustment
+    
+    Critical Task which have the priority of being easy:
+    1. Ping Marks
+    2. Control start sequence
+    3. Setup course
+    4. Read instrument numbers
+    5. Move marks, change of course
+    6. View instrument charts
+    7. Calibrate wind instruments
+    8. Adjust polars
+-->

@@ -232,7 +232,6 @@
 
 		// Determine and declare `event stream` source, 
 		// whether will be host api or XHR fallback
-		console.log("Trying to open to " + opts.url);
 		streamType = !isHostApi ?
 								// If not host api, open a polling fallback
 								

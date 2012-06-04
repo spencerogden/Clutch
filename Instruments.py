@@ -19,6 +19,9 @@ import geo
 import observable
 import varmaps
 
+import socket
+import Message
+
 class Instruments(observable.Observable):
     def __init__(self,name):
         super(Instruments,self).__init__()
@@ -43,7 +46,7 @@ class SimulatorInstruments(Instruments,threading.Thread):
             time.sleep(0.01)
             t = (t+1) % sys.maxint
             
-            twd = math.sin(t/1000.0)*15 
+            twd = math.sin(t/1000.0)*15 % 360
             tws = math.sin(t/2000.0)*5 + 12.5
             
             base_heading = 90 * ((t/500) % 4 +1) - 45 + twd
@@ -60,7 +63,7 @@ class SimulatorInstruments(Instruments,threading.Thread):
             awa = math.degrees(math.radians(90) - math.atan( bb/a)) * cmp(twa,0) # recover sign of angle
             aws = (a**2 + bb**2)**0.5
             
-            pos = pos.pos_at_range_bearing( 0.01*bsp, heading )
+            pos = pos.pos_at_range_bearing( (0.01/(60.0*60.0))*bsp, heading )
             
             newdata = {
                 'Bsp': bsp,
@@ -129,6 +132,31 @@ class LogReaderInstruments(Instruments,threading.Thread):
     def stop(self):
         self.halt = True
         
+class ExpeditionUDPInstruments(Instruments,threading.Thread):    
+    def __init__(self, name, port=5010):
+        self.port = port
+        self.halt = False
+        Instruments.__init__(self,name)
+    
+    def run(self):
+        print self.name + " Expedition UDP on port " + str(self.port) + " started"
+        newdata = {'source': self.name}
+        map = varmaps.ExpeditionNumMap()
+        expmsg = Message.ExpeditionUDPMessage()
+        
+        sock = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
+        sock.bind(('0.0.0.0',self.port))
+        sockfile = sock.makefile()
+        
+        while not self.halt:
+            msg = sockfile.readline()
+            expmsg.set_msg(msg.rstrip())
+            newdata.update(expmsg.as_dict())
+            self.notifyObservers(map.frm(newdata))
+                    
+    def stop(self):
+        self.halt = True
+            
 class InstrumentsMerge(Instruments):
     def __init__(self):
         Instruments.__init__(self,"Master")
