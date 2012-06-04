@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Clutch</title>
+<script type="text/javascript" src="static/jquery.js"></script>
+<script type="text/javascript" src="static/jquery-ui.js"></script>
+<script type="text/javascript" src="static/jquery.eventsource.js"></script>
+<script type="text/javascript" src="static/d3.min.js"></script>
+<script type="text/javascript" src="static/swipe.js"></script>
+<style type="text/css">
+    body,html{
+        margin:0;
+        padding:0;
+        height:100%
+    }
+    ul{
+        margin: 0;
+        padding:0;
+        list-style-type:none;
+        height:100%;
+        border:1px solid green;
+    }
+    .ControlGroup{
+        display: block;
+        height:100%;
+        width:100%;
+        border: 1px solid yellow;
+        float:left;
+    }
+    #slider{
+        display: block;
+        width:100%;
+        height:100%;
+        margin:0;
+        padding:0;
+        user-select: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -o-user-select: none;
+        border: 1px solid red;
+        overflow:hidden;
+    }
+</style>
+<script type="text/javascript">
+    $(document).ready(function(){
+        var activeNumBoxes = [];
+        var active = 0;
+        
+        function startstream(){$.eventsource({
+            label: "nums",
+            url: "/sse-stream/",
+            dataType: "json",
+            message: function(msg){
+                $(".NumBox").each(function(i){
+                    varname = $(this).data('var');
+                    if( varname in msg ){
+                        $(this).children(".Data").html(msg[varname]);
+                    }
+                });
+            }
+        });}
+        
+        function setupNumBoxes(){
+            $(".NumBox").html("<div class='Data'>data</div><div class='Label'>label</div>");
+            $(".NumBox").each(function(i){
+                $(this).children(".Label").html($(this).data("var"))
+                    .css("font-size",$(this).children(".Label").height()*0.90);
+                $(this).children(".Data")
+                    .css( "font-size",$(this).children(".Data").height()*0.80);
+            });
+        }
+        
+        setupNumBoxes();
+        startstream();
+
+        window.mySwipe = new Swipe(document.getElementById('slider'));
+
+    });
+    
+    console.log("up and running");
+    
+
+</script>
+</head>
+<body>
+    <div id="slider" class="swipe">
+        <ul>
+            <li id="Settings" class="ControlGroup">
+                <ul>
+                    <li id="Boat" class="Box" onclick = "void(0)">Boat settings</li>
+                </ul>
+            </li>
+            <li id="RaceData" class="ControlGroup">
+                <ul>
+                    <li class="NumBox Box" data-var="TWA" onclick = "void(0)">TWA</li>
+                    <li class="NumBox Box" data-var="TWS" onclick = "void(0)">TWS</li>
+                </ul>
+            </li>
+            <li id="RaceManagement" class="ControlGroup LastGroup">
+                <ul>
+                    <li id="CourseSetup" class="Box" onclick = "void(0)">Create Course</li>
+                    <li id="StartScreen" class="Box" onclick = "void(0)">Start</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>
