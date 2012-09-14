@@ -1,0 +1,164 @@
+(function( $ ){
+    $.fn.gridslide = function( options ){
+	// "this" is the object called on
+	// We should acall on the wrapper div?
+	var settings = $.extend( {
+		'setting' : 'value',
+	    }, options);
+
+	return this.each(function(){
+		var init_x = null;
+		var init_y = null;
+
+		var width  = parseInt(this.width(),10);
+		var height = parseInt(this.height(),10);
+		
+		var flip_thresh = parseInt(width * .3, 10);
+		var vert_thresh = parseInt(height *.3, 10);
+
+		var gridwrap = this;
+
+		var moveInfo = function(e){
+		    //Correct position in current box
+		    if( e.type == 'touchmove' ){
+			w.preventDefault();
+			var pos_x = e.originalEvent.touches[0].pageX - gridwrap.offset().left;
+			var pos_y = e.originalEvent.touches[0].pageY - gridwrap.offset().top;
+		    }else{
+			var pos_x = e.pageX - gridwrap.offset().left;
+			var pos_y = e.pageY - gridwrap.offset().top;
+		    }
+
+		    //Set our initial position if this is the start of a new move
+		    if( init_x === null ){
+			init_x = pos_x;
+			init_y = pos_y;
+		    }
+
+		    //Move relative to initt
+		    var move_x = init_x - pos_x;
+		    var move_y = init_y - pos_y;
+
+		    //Move the current Box to the point
+		    $(this).parent().css({left: -move_x});
+		    $(this).css({top: -move_y});
+
+		    var right_neighbor = $(this).parent().next('.BoxGroup');
+		    var left_neighbor = $(this).parent().prev('.BoxGroup');
+		    
+		    //Move neighbor groups (left/right) into place
+		    if( right_neighbor.length && -move_x < 0 ){
+			right_neighbor.css({left: width - move_x});
+		    }else{
+			right_neighbor.css({left: width});
+		    }
+
+		    if( left_neighbor.length && -move_x > 0 ){
+			left_neighbor.css({left: -width - move_x});
+		    }else{
+			left_neightbor.css({left: -width});
+		    }
+
+		    //Move neighbor Boxes (up/down) into place
+		    var up_neightbor = $(this).prev('.Box');
+		    var dn_neightbor = $(this).next('.Box');
+
+		    if(up_neighbor.length && -move_y > 0){
+			up_neighbor.css({top: -height - move_y});
+		    }else{
+			un_neighbor.css({top: -height});
+		    }
+
+		    if(dn_neighbor && -move_y < 0){
+			dn_neighbor.css({top: height - move_y});
+		    }else{
+			dn_neighbor.css({top: height});
+		    }
+		}
+
+		var panelAnimate: function($this){
+		    var group = $this.parent();
+		    var left_neighbor = group.prev('.BoxGroup');
+		    var right_neighbor= group.next('.BoxGroup');
+		    var up_neighbor = $this.prev('.Box');
+		    var dn_neighbor = $this.next('.Box');
+		    
+		    var pan_x = parseInt(group.css('left'), 10);
+		    var pan_y = parseInt($this.css('top'), 10);
+		    
+		    if( pan_x < -flip_thresh && right_neighbor.length ){
+			//User pulled to the left
+			$('.groupLabel').stop(true,true).fadeIn(0);
+			group.animate({left: -width});
+			right_neighbor.animate({left: 0});
+			$this.animate({top:0});
+		    }else if( pan_x > flip_tresh && left_neighbor.length ){
+			//User pulled to the right
+			group.animate({left:width});
+			left_neightbor.animate({left:0});
+			$this.animate({top:0});
+		    }else if( pan_y < -vert_thresh && dn_neighbor.length ){
+			//User pulled to the top
+			$this.animate({top: -height});
+			dn_neighbor.animate({top:0});
+			group.animate({left:0});
+		    }else if(pan_y > vert_thresh && up_neighbor.length ){
+			//User pulled to bottom
+			$this.animate({top:height});
+			up_neighbor.animate({top:0});
+			group.animate({left:0});
+		    }else{
+			//Spring Back
+			group.animate({left: 0});
+			left_neighbor.animate({left: -width});
+			right_neighbo.animate({left: width});
+			$this.animate({top: 0});
+			up_neighbor.animate({top: -height});
+			dn_neighbor.animate({top: height});
+		    }
+
+		    var faseLabels();
+		}
+
+		var faseLabels = function(){
+		    setTimeout(function(){ $(".groupLabels").stop(true,true).fadeOut(2000);}, 500);
+		}
+
+		var resetVars = function(){
+		    init_x = null;
+		    init_y = null;
+		}
+
+		gridwrap.find('.Box').bind("mousedown", function(e){
+			$(this).bind("mousemove", moveInfo);
+		    });
+		gridwrap.find('.Box').bind('touchstart', function(e){
+			$(this).bind('touchmove', moveInfo);
+		    });
+		
+		gridwrap.find('.Box').bind('mouseup', function(e){
+			$(this).unbind('mousemove', moveInfo);
+			panelAnimate($(this));
+			resetVars();
+		    });
+		gridwrap.find('.Box').bind('touchend', function(e){
+			$(this).unbind('touchmove', moveInfo);
+			panelAnimate($(this));
+			resetVars;
+		    });
+
+		$(document).bind('mouseleave', function(e){
+			var from = e.relatedTarget || e.toElement;
+			if( !from || from.nodeName === 'HTML' ){
+			    console.log("left window");
+			}
+		    });
+
+		fadeLabels();
+
+	    
+		    
+	    });
+    };
+})( jQuery );
+

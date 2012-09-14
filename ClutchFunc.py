@@ -15,6 +15,7 @@ import sys,os,glob,threading,time,types
 def loadFuncs(directory):
     with clutchfunc.func_lock:
         # Load any new modules in this directory, do not reload modules already loaded
+        
         clutchfunc.directory = directory
         clutchfunc.path = os.path.join(os.getcwd(),os.path.dirname(__file__),directory)
         standard_syspath = sys.path
@@ -26,7 +27,7 @@ def loadFuncs(directory):
                 # continue with next file
                 continue
             filename = os.path.basename(f)[:-3]
-            print "Importing",filename,":",
+            #print "Importing",filename,":",
             try:
                 clutchfunc.modules.append(__import__(filename))
             except SyntaxError as e:
@@ -39,9 +40,7 @@ def loadFuncs(directory):
                 except OSError:
                     continue
                 clutchfunc.modules[-1].__mtime__ = stat.st_mtime
-                print
         sys.path = standard_syspath
-
 
 def rescanFuncs():
     # Rescan existing files for changes
@@ -115,7 +114,7 @@ def runFuncs(data,changed=None,unchanged=None):
                 #inputs = map(dict(data.items() + new_data.items()).get,f.dependencies)
                 #inputs = dict([ (k,data[k]) for k in f.dependencies ])
                 #try:
-                res = f(**dict([ (k,data[k]) for k in f.dependencies ])) # Extract needed inputs from available data
+                res = f(**dict([ (k,data[k]) for k in f.dependencies if data[k] is not None ])) # Extract needed inputs from available data
                 #except:
                 #    print "Error running function: %s, try implementing a fix in %s. Dependents will likely fail. : %s" % (f.__name__, f.__module__,sys.exc_info()[0])
                 #else:

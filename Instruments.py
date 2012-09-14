@@ -23,13 +23,14 @@ import socket
 import Message
 
 class Instruments(observable.Observable):
-    def __init__(self,name):
+    def __init__(self,name,**kwargs):
         super(Instruments,self).__init__()
         self.name = name
         self.data = {}
+        print "Connecting to %s" % (self.name)
 
 class SimulatorInstruments(Instruments,threading.Thread):
-    def __init__(self,name):
+    def __init__(self,name,**kwargs):
         threading.Thread.__init__(self)
         Instruments.__init__(self,name)
         self.halt = False
@@ -84,11 +85,11 @@ class SimulatorInstruments(Instruments,threading.Thread):
             #    (twd,tws,heading,bsp,twa,awa,aws,pos)
         
 class RandomInstruments(Instruments,threading.Thread):
-    def __init__(self,name,num):
+    def __init__(self,name,**kwargs):
         threading.Thread.__init__(self)
         Instruments.__init__(self,name)
         self.halt = False
-        self.num = num
+        self.num = numbers
         
     def run(self):
         print self.name + " Random Instrument monitor started"
@@ -106,12 +107,13 @@ class RandomInstruments(Instruments,threading.Thread):
         self.halt = True
 
 class LogReaderInstruments(Instruments,threading.Thread):
-    def __init__(self,name,file):
+    def __init__(self,name,filename=None, format=None):
         threading.Thread.__init__(self)
         Instruments.__init__(self,name)
         self.halt = False
-        self.file = file
-        self.fh = open(file,'rb')
+        self.file = filename
+        self.format = format
+        self.fh = open(self.file,'rb')
         
     def run(self):
         print self.name + " Log Reader started: " + self.file
@@ -124,7 +126,13 @@ class LogReaderInstruments(Instruments,threading.Thread):
                 time.sleep(.01)
                 if self.halt:
                     break
-                newdata.update(dict((k, rawdata[k]) for k,v in rawdata.iteritems() if not(v == '' or v == None)))
+                def try_float(str):
+                    try:
+                        return float(str)
+                    except ValueError:
+                        return float('nan')
+                        
+                newdata.update(dict((k, try_float(rawdata[k])) for k,v in rawdata.iteritems() if not(v == '' or v == None)))
                 self.notifyObservers(map.frm(newdata))
 
             self.fh.seek(0)
@@ -133,8 +141,12 @@ class LogReaderInstruments(Instruments,threading.Thread):
         self.halt = True
         
 class ExpeditionUDPInstruments(Instruments,threading.Thread):    
-    def __init__(self, name, port=5010):
-        self.port = port
+    def __init__(self, name,**kwargs):
+        try:
+            self.port = port
+        except NameError:
+            self.port = 5010
+            
         self.halt = False
         Instruments.__init__(self,name)
     
@@ -148,6 +160,7 @@ class ExpeditionUDPInstruments(Instruments,threading.Thread):
         sock.bind(('0.0.0.0',self.port))
         sockfile = sock.makefile()
         
+        # Change this to some form of socket read with a timeout.
         while not self.halt:
             msg = sockfile.readline()
             expmsg.set_msg(msg.rstrip())
@@ -159,7 +172,7 @@ class ExpeditionUDPInstruments(Instruments,threading.Thread):
             
 class InstrumentsMerge(Instruments):
     def __init__(self):
-        Instruments.__init__(self,"Master")
+        Instruments.__init__(self,"Master",inst_type="merge")
         self.instruments = {}
         self.observers = []
 
@@ -177,7 +190,7 @@ class InstrumentsMerge(Instruments):
             if insts.is_alive():
                 insts.stop()
                 insts.join()
-        print "instruments stopped"
+        print "Instruments Stopped"
             
     def dataUpdate(self,data):
         with self.datalock:

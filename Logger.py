@@ -4,8 +4,10 @@ import sqlite3
 import os
 import shutil
 import time
+import cPickle as pickle
+import numbers
 
-LOG_DB_VERSION = 1
+LOG_DB_VERSION = 2
 
 class Logger:
     def __init__(self,logdbfile):
@@ -35,7 +37,7 @@ class Logger:
         
         
     def __del__(self):
-        print "Closing %s at %s" % (self.name, self.dbfile)
+        print "Closing %s at %s" % ("log file", self.dbfile)
         self.con.commit()
         self.con.close()
         
@@ -56,7 +58,7 @@ class Logger:
         
         if self.ver > 0:
             # If version is 0, we are building from scratch, no need to backup
-            print("Upgrading Log DB file:",self.dbfile,"from version",db_rev,"to",LOG_DB_VERSION);
+            print("Upgrading Log DB file:",self.dbfile,"from version",self.ver,"to",LOG_DB_VERSION);
             shutil.copy(self.dbfile, self.dbfile + ".backup")
         
         while self.ver < LOG_DB_VERSION:
@@ -75,7 +77,7 @@ class Logger:
             CREATE TABLE position ( timestamp FLOAT PRIMARY KEY, 
                                     latitude  FLOAT,
                                     longitude FLOAT)
-            ''');
+            ''')
             
         self.cur.execute('''
             CREATE TABLE clutch_control ( version INTEGER, name TEXT ) 
@@ -86,7 +88,16 @@ class Logger:
         self.con.commit()
         
     def build_2(self):
-        pass
+        if self.ver != 1:
+            raise Exception, "Can't upgrade this version"
+        self.cur.execute('''
+            CREATE TABLE rawdata ( timestamp FLOAT PRIMARY KEY,
+                                    data BLOB )
+            ''')
+        self.cur.execute('''
+            INSERT INTO clutch_control(version) VALUES (2)
+            ''')  
+        self.con.commit()
         
     def set_log_name(self,newname):
         self.name = newname
@@ -135,10 +146,13 @@ class Logger:
         
     def update(self,data):
         timestamp = time.time()
+        pdata = pickle.dumps(dict([(k,v) for (k,v) in data.items() if isinstance(k, str) and isinstance(v,numbers.Number)]),pickle.HIGHEST_PROTOCOL)
         if 'Lon' in data:
             self.cur.execute('''INSERT INTO position(timestamp, latitude, longitude)
                                 VALUES (?,?,?)''',
                                 (timestamp, data['Lat'], data['Lon']))
+            self.cur.execute("INSERT INTO rawdata (timestamp, data) values (:ts,:data)", (timestamp, sqlite3.Binary(pdata)))
+
             self.con.commit()
         
     def test_pos(self):

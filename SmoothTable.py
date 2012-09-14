@@ -120,20 +120,19 @@ class Table(object):
             invDenom = 1/ float(dot00*dot11 - dot01*dot01)
             u = (dot11*dot02 - dot01*dot12) * invDenom
             v = (dot00*dot12 - dot01*dot02) * invDenom
-            
+            #print "u/v %s/%s" % (u,v)
             if u>=0 and v>=0 and (u+v) <= 1:
                 # We are in the triangle
                 z0 = t.p1.z
                 z1 = t.p2.z
                 z2 = t.p3.z
-                
                 return z0 + v*(z1-z0) + u*(z2-z0)
         return None # point is not within the defined area
         
     def lookup_targs(self, tws):
         tws_low = int(math.floor(tws))
         tws_high = int(math.ceil(tws))
-        
+
         def find_targ(tws,dir): #dir +1 for upwind, -1 for downwind
             min = 15.0
             max = 180.0
@@ -142,8 +141,7 @@ class Table(object):
                 low_mid  = (mid+min)/2.0
                 high_mid = (max+mid)/2.0
                 low_bsp  = self.lookup(tws, low_mid)
-                high_bsp = self.lookup(tws,high_mid)
-                
+                high_bsp = self.lookup(tws,high_mid)                
                 low_vmg  = math.cos(math.radians(low_mid )) *  low_bsp
                 high_vmg = math.cos(math.radians(high_mid)) * high_bsp
                 
@@ -214,7 +212,6 @@ class Table(object):
                         neighbor_point_sum += neighbor.point_opposite_edge(e).z
             # w should be zero when either end of the edge is less than degree 6
             w = 1/16.0
-            print "for edge %r with %d points the three components are %f, %f, %f" % (e,number_of_points,new_point[2],sibling_point_sum,neighbor_point_sum)
             new_point.z += 2*w*sibling_point_sum + w*neighbor_point_sum
             self.points[new_point] = set()
         self.defined_triangles = delaunay(points.keys())

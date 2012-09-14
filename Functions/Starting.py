@@ -94,10 +94,10 @@ def distToLine(course, Pos, TWD, TWS, distToPort, distToStar,distToLnPerp, targT
     
     dist_list.append(polarDist( distToStar, brngStar ))
     bsp = tablelibrary.tables['polars'].lookup( TWS, (TWD - brngStar)%180 )
-    time_list.append(datetime.timedelta(0,r/bsp*3600.0))
+    time_list.append(datetime.timedelta(0,distToStar/bsp*3600.0))
     dist_list.append(polarDist( distToPort, brngPort ))
     bsp = tablelibrary.tables['polars'].lookup( TWS, (TWD - brngPort)%180 )
-    time_list.append(datetime.timedelta(0,r/bsp*3600.0))
+    time_list.append(datetime.timedelta(0,distToPort/bsp*3600.0))
     
     index = time_list.index(min(time_list))
         

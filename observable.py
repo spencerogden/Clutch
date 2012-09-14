@@ -18,7 +18,7 @@ class Observable (object):
                 self._observers[key][callback.im_self] = callback.im_func
             except AttributeError:
                 self._observers[key][callback] = callback
-        
+
         
     def unsubscribe(self, callback):
         for key in self._observers.keys():

@@ -3,6 +3,7 @@
 import  observable
 
 import tornado.web
+import tornado.websocket
 import tornado.ioloop
 import threading
 import uuid
@@ -12,18 +13,30 @@ import json
 import socket
 import time
 import datetime
+import numbers
+import math
 
 # Fallback json encoder
 def default(o):
     return o.__dict__
 
+import ConfigParser
+
+client_config = ConfigParser.SafeConfigParser()
+client_config.read('clients.conf')
+
 import mako.lookup
 mako = mako.lookup.TemplateLookup(directories=['web/templates'],module_directory='web/templates/mako')
 
 class Server(threading.Thread,observable.Observable):
-    def __init__(self, port):
+    def __init__(self, port,app_type='full'):
         threading.Thread.__init__(self)
         observable.Observable.__init__(self)
+        
+        main_handlers = {
+            'full': (r"/",FullMainHandler),
+            'repeater': (r"/",RepeaterMainHandler),
+        }
         
         self.port = port
         self.streams = set()
@@ -34,8 +47,7 @@ class Server(threading.Thread,observable.Observable):
             (r"/timesync/",TimeStream),
             (r"/sse-stream/",SSEStream,dict(streams=self.streams)),
             (r"/static/(.*)",tornado.web.StaticFileHandler,{"path":"web/static"}),
-            (r"/",MainHandler),
-            (r"/ios",iOSHandler),
+            main_handlers[app_type],
             (r"/ping",PingHandler,dict(server=self)),
             (r"/log",LogHandler),
             ])
@@ -43,14 +55,13 @@ class Server(threading.Thread,observable.Observable):
         self.app.listen(self.port)
         
     def run(self):
-        print "tornado started on %s:%d" % (socket.gethostname(),self.port)
+        print "Web Interface Started on %s:%d" % (socket.gethostname(),self.port)
         scheduler = tornado.ioloop.PeriodicCallback(self.send,100, io_loop = self.ioloop )
         scheduler.start()
         self.ioloop.start()
-        print "tornado stopped"
+        print "Web Interface Stopped"
 
     def stop(self):
-        print "tornado stopping"
         self.ioloop.stop()
         self.streams = None
         
@@ -63,16 +74,16 @@ class Server(threading.Thread,observable.Observable):
                 s(data=self.data,source="")
             self.data = {}
         
-class MainHandler(tornado.web.RequestHandler):
+class FullMainHandler(tornado.web.RequestHandler):
     def get(self):
         temp = mako.get_template('index.html')
         self.write(temp.render())
-
-class iOSHandler(tornado.web.RequestHandler):
-    def get(self):
-        temp = mako.get_template('ios.html')
-        self.write(temp.render())
         
+class RepeaterMainHandler(tornado.web.RequestHandler):
+    def get(self):
+        temp = mako.get_template('repeater.html')
+        self.write(temp.render())
+
 class PingHandler(tornado.web.RequestHandler):
     def initialize(self, server):
         self.notifyObservers = server.notifyObservers
@@ -94,6 +105,16 @@ class LogHandler(tornado.web.RequestHandler):
     def post(self):
         print str(datetime.datetime.now()) + ": " + self.get_argument('text','')
         
+class UserInteractionHandler(tornado.websocket.WebSocketHandler):
+    def open(self):
+        print "UserInteraction socket opened"
+    
+    def on_mesage(self, message):
+        self.write_message(u"You said: " + message)
+    
+    def on_close(self):
+        print "UserInteraction socket closed"
+                
 class SSEStream(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def initialize(self,streams):
@@ -107,7 +128,8 @@ class SSEStream(tornado.web.RequestHandler):
         self.flush
         
     def streamUpdate(self,source,data):
-        self.write("data:%s\n\n" % json.dumps(data,default=default))
+        #self.write("data:%s\n\n" % json.dumps(dict([(k,v) for (k,v) in data.items() if isinstance(k, str) and isinstance(v,numbers.Number)]),default=default))
+        self.write("data:%s\n\n" % json.dumps(dict([(k,v) for (k,v) in data.items() if isinstance(k, str) and  v == v]),default=default))
         self.flush()
         
     #def stream_close(self):

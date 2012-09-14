@@ -29,9 +29,9 @@ class ClutchCore(observable.Observable):
         self.tl = Tables.TableLibrary()
         self.tl.addTables("Polars")
         self.update_tablelibrary( {} )
-        
+
         ClutchFunc.load_and_monitor("Functions")
-        
+
         # Short term buffer of data we need on hand
         self.buffer = collections.deque([],5000)
         self.buffer_last_found = 0

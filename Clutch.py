@@ -51,7 +51,7 @@ import logging
 insts = Instruments.InstrumentsMerge()
 # Instrument tester simulating boat sailing around
 sim_insts = Instruments.SimulatorInstruments('sim')
-insts.addInstruments(sim_insts)
+#insts.addInstruments(sim_insts)
 exp_insts = Instruments.ExpeditionUDPInstruments('expedition')
 insts.addInstruments(exp_insts)
 
