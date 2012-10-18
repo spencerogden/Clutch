@@ -429,7 +429,13 @@ class GeoMag:
         return dec
   
     def __init__(self, wmm_filename="WMM/WMM.COF"):
-        fullpath = os.path.join(os.path.dirname(__file__), wmm_filename)
+        import sys
+        if getattr(sys, 'frozen', None):
+            basedir = sys._MEIPASS
+        else:
+            basedir = os.path.dirname(__file__)
+            
+        fullpath = os.path.join(basedir, wmm_filename)
         wmm=[]
         with open(fullpath) as wmm_file:
             for line in wmm_file:
@@ -509,8 +515,8 @@ class GeoMag:
                 self.c[m][n] = self.snorm[m][n]*self.c[m][n]
                 self.cd[m][n] = self.snorm[m][n]*self.cd[m][n]
                 D2=D2-1
-                m=m+D1
-
+                m=m+D1             
+                
 gm = GeoMag()
 
 def deg(dms_string):

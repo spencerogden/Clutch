@@ -29,7 +29,8 @@
                         if( v.getMinutes() > 60 ){  
                             v = value.getHours() + "h" + v.getMinutes() + "m"
                         }else{
-                            v = v.getMinutes() + ":" + v.getSeconds()
+							secs = ("0" + v.getSeconds()).slice(-2);
+                            v = v.getMinutes() + ":" + secs;
                         }
         return v;
     }
