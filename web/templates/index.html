@@ -37,6 +37,7 @@
             url: "/sse-stream/",
             dataType: "json",
             message: function(msg){
+                console.log(msg);
                 $("div.NumBox[data-var]").each(function(i){
                     varname = $(this).data('var');
                     if( varname in msg ){

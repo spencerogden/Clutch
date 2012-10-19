@@ -163,6 +163,7 @@ class ExpeditionUDPInstruments(Instruments,threading.Thread):
         # Change this to some form of socket read with a timeout.
         while not self.halt:
             msg = sockfile.readline()
+        
             expmsg.set_msg(msg.rstrip())
             newdata.update(expmsg.as_dict())
             self.notifyObservers(map.frm(newdata))
