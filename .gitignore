@@ -1,2 +1,4 @@
-web/tempate/mako/*
+web/templates/mako/*
 *.log
+WMM/README.txt
+*~
