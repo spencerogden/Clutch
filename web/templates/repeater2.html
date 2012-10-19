@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Clutch</title>
+<meta name="apple-mobile-web-app-capable" content="yes" /> 
+<meta name="apple-touch-fullscreen" content="yes" />
+
+<meta name="viewport" minimum-scale=1, maximum-scale=1"> 
+
+<link rel="apple-touch-icon" href="/static/clutch.png"/>
+<link rel="shortcut icon" href="/static/clutch.png" type="image/png" />
+
+<link rel="stylesheet" type="text/css" href="static/css/clutch.css?1" />
+
+<script type="text/javascript" src="static/jquery-1.8.1.min.js"></script>
+<script type="text/javascript" src="static/jquery.eventsource.js"></script>
+
+<script type="text/javascript">
+    var seen_vars = new Object();
+    var sel_vars = new Object();
+    var time_vars = {'LayTimeStb':'',
+                     'LayTimePrt':''};
+    var fmt_time = function(v){
+        v = new Date(v * 24*60*60*1000);
+                        if( v.getMinutes() > 60 ){  
+                            v = value.getHours() + "h" + v.getMinutes() + "m"
+                        }else{
+                            v = v.getMinutes() + ":" + v.getSeconds()
+                        }
+        return v;
+    }
+    var var_fmt = {'LayTimeStb': fmt_time,
+                   'LayTimePrt': fmt_time,
+                   'TWD': function(v){ return v.toFixed(0) },
+                   'TWS': function(v){ return v.toFixed(1) },
+                   'TWA': function(v){ return v.toFixed(0) },
+                   'StartLnBiasA': function(v){ return v.toFixed(0) },
+                   'StartTimeLine': fmt_time,
+                   'StartTimeBurn': fmt_time
+                   };
+
+    $(document).ready(function(){
+        function log(string){
+            $.post('log',{text: string});
+            console.log(string);
+        }
+    
+        function startstream(){$.eventsource({
+            label: "nums",
+            url: "/sse-stream/",
+            dataType: "json",
+            message: function(msg){
+                $("div.NumBox[data-var]").each(function(i){
+                    varname = $(this).data('var');
+                    
+                    if( varname in msg ){
+                        var fmt_func = var_fmt[varname];
+                        if(!fmt_func){ fmt_func = function(v){return v} };
+                        $(this).children(".Data").html(fmt_func(msg[varname]));
+                        //$(this).children(".Data").html(value);
+                        //$(this).children(".Data").html(Number(msg[varname]).toFixed(2));
+                    }
+                
+                });
+            }
+            
+            });
+        }
+    startstream();
+    $( "#settings" ).bind( "pageshow", function(event, data){
+        var var_list = [];
+        for (key in seen_vars){
+            if (seen_vars.hasOwnProperty(key)){
+                var_list.push(key);
+            }
+        }
+        var_list.sort()
+        var list_html = ''; 
+        //list_html = '<fieldset data-role="controlgroup">';
+        var_list = ['TWA','TWS','TWD'];
+        for(v in var_list){
+            list_html += "<label><input type='checkbox' name='" + v + "' />"+v+"</label>\n"
+        }
+        //list_html += '</fieldset>';
+        console.log(list_html);
+        $(".ui-controlgroup-controls").html(list_html);
+        $(':input:checkbox').page();
+        //$("fieldset").page();
+    });
+  function setupNumBoxes(){
+    $(".NumBox").html("<div class='Data'>data</div><div class='Label'>label</div>");
+    $(".NumBox")
+        
+        .each(function(i){
+        console.log("setting up "+ $(this).data("var"));
+        $(this).children(".Label").html($(this).data("var"));
+        });
+    }
+
+  function resizeNumBoxes(){
+
+    log("resize numboxes");
+    $(".NumGrid1").css("height", $(window).height() )
+        .children(".NumBox").css("height", "100%" )
+    $(".NumGrid2").css("height", $(window).height() )
+        .children(".NumBox").css("height", "50%" )
+        
+    $(".NumBox .Label").each(function(){
+        $(this).css("font-size",$(this).height()*.8);});
+    $(".NumBox .Data").each(function(){
+        $(this).css( "font-size",Math.min($(this).height()*1,$(this).width()*0.35));});
+    }
+
+    var current_box = 0; // Which box was showing when we left the numbers page
+    function snapNumBox(){
+        log("scroll stop");
+        current_box = Math.round(window.scrollY/$(window).height());
+        // Can't get animated snap to work with firing infinite scroll events. 
+        //$("body").animate({scrollTop : $(window).height() * current_box },'fast');
+        // Functional but not pretty
+        $.mobile.silentScroll($(window).height() * current_box);
+    }
+  
+    $( "#numbers" ).bind( "pageshow", function(event, data){    
+        $.mobile.silentScroll($(window).height() * current_box);
+    });
+    
+    
+    $( "#numbers" ).bind( "pagebeforeshow", function(event, data){
+        resizeNumBoxes();
+        startstream();
+        $( document ).bind( "scrollstop" , snapNumBox );
+        $( window   ).bind("resize"      , resizeNumBoxes );
+        
+    });
+    
+    
+    $( "#numbers" ).bind( "pagebeforehide", function(){
+
+        //$( document ).unbind( "scrollstop" , snapNumBox );
+        //$( window   ).unbind( "resize"     , resizeNumBoxes );
+        });
+    setupNumBoxes();
+    resizeNumBoxes();
+    $( document ).bind( "scrollstop" , snapNumBox );
+
+    $(document).keydown(function(e) {
+        if( e.which == 38 ){ // Up Arrow
+            e.preventDefault();
+            current_box = Math.max(0, current_box-1);
+            $.mobile.silentScroll($(window).height() * current_box);
+            log("up " + current_box);
+        }else if( e.which == 40 ){ // Down Arrow
+            e.preventDefault();
+            current_box = Math.min( $(".NumGrid1").length + $(".NumGrid2").length, current_box+1);
+            $.mobile.silentScroll($(window).height() * current_box);
+            log("down " + current_box);
+        }
+    });
+
+  });
+</script>
+</head>
+<body>
+    <div id="numbers" data-role="page">
+        <!--<div data-role="header" 
+                                data-disable-page-zoom="true" 
+                                data-tap-toggle="true"
+                                data-update-page-padding="false">
+            <a href="#settings" data-role="button" 
+                                data-icon="arrow-l" 
+                                data-transition="none"
+                                >Settings</a>
+            <h1>Numbers</h1>
+        </div>-->
+        <div data-role="content" >
+            <div class="NumGrid1"><div class="NumBox" data-var="TWA"></div></div>
+            <!--
+            <div class="NumGrid1"><div class="NumBox" data-var="TWS"></div></div>
+            <div class="NumGrid1"><div class="NumBox" data-var="TWD"></div></div>
+            <div class="NumGrid1"><div class="NumBox" data-var="StartLnBiasA"></div></div>
+            <div class="NumGrid2">
+                <div class="NumBox" data-var="LayTimeStb"></div>
+                <div class="NumBox" data-var="LayTimePrt"></div>
+            </div>
+            <div class="NumGrid1"><div class="NumBox" data-var="StartTimeLine"></div></div>
+            <div class="NumGrid1"><div class="NumBox" data-var="StartTimeBurn"></div></div>
+            -->
+        </div>
+    </div>
+    <div id="settings" data-role="page">
+        <div data-role="header" data-update-page-padding="false"
+                                data-disable-page-zoom="true">
+            <h1>Available Numbers</h1>
+            <a href="#numbers" data-role="button" 
+                               class='ui-btn-right' 
+                               data-transition="none"
+                               >Done</a>
+        </div>
+        <div id="varlist" data-role="content">
+            <fieldset data-role="controlgroup">
+                <label><input type="checkbox" name="TWA" />TWA</label>
+                <label><input type="checkbox" name="TWA" />TWA</label>
+            </fieldset>
+        </div>
+    </div>
+
+</body>
+</html>
