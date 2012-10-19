@@ -81,7 +81,7 @@ class FullMainHandler(tornado.web.RequestHandler):
         
 class RepeaterMainHandler(tornado.web.RequestHandler):
     def get(self):
-        temp = mako.get_template('repeater2.html')
+        temp = mako.get_template('repeater.html')
         self.write(temp.render())
 
 class PingHandler(tornado.web.RequestHandler):
@@ -161,4 +161,5 @@ class TimeStream(tornado.web.RequestHandler):
 if __name__ == "__main__":
     web = Server()
     web.start()
+
    
