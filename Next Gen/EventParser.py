@@ -94,12 +94,18 @@ def parse( filename ):
                     #print components
                     print space_condensed_components
             end_time = None
+            
         events = process_event("End Of File",0,last_time,None)
         vars = process_variable("",0,last_time)
-        for v in vars:
-            print v[0],'=',v[1],'from',v[2],'to',v[3]
-        for e in events:
-            print events.index(e),":",e[0],'from',e[1],'to',e[2],'parent',e[3]
+        
+        return (events[0,-1], vars)
+
+        
+def dump_results(events,vars):
+    for v in vars:
+        print v[0],'=',v[1],'from',v[2],'to',v[3]
+    for e in events:
+        print events.index(e),":",e[0],'from',e[1],'to',e[2],'parent',e[3]    
         
 def extract_time( space_condensed_components , default, tz ):
     # Try to extract a time off the end of string
@@ -172,7 +178,8 @@ def process_variable( name, value, time ):
     
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        parse(sys.argv[1])
+        es,vs = parse(sys.argv[1])
+        dump_results(es,vs)
     else:
         print "Please supply filename of log to parse"
         
