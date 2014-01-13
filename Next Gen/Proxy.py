@@ -10,6 +10,18 @@
 # Name of source can be determined by looking up in most recent priority list
 
 # datasources.conf will define default highest priority sources
-# If not defined, first come first server
+# If not defined, first come first serve
 # may be redefined at runtime with Priority message
 # By default, Core will be highest priority unless explicitly defined as not
+
+import zmq
+
+context = zmq.Context()
+
+xpub = context.socket(zmq.XPUB)
+xpub.connect("tcp://localhost:5555")
+
+xsub = context.socket(zmq.XSUB)
+xsub.connect("tcp://localhost:5556")
+
+zmq.proxy(xpub,xsub)
