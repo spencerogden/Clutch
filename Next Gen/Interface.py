@@ -11,3 +11,6 @@
     # Commandline
     # Logger
 
+# Looks like Derby is best for web interface
+# Meteor could be a runner up.
+# Basically, we want python to end at handing off zeromq messages to a node.js powered web app
