@@ -20,9 +20,9 @@ import math
 def default(o):
     return o.__dict__
 
-import ConfigParser
+import configparser
 
-client_config = ConfigParser.SafeConfigParser()
+client_config = configparser.SafeConfigParser()
 client_config.read('clients.conf')
 
 import mako.lookup
@@ -55,11 +55,11 @@ class Server(threading.Thread,observable.Observable):
         self.app.listen(self.port)
         
     def run(self):
-        print "Web Interface Started on %s:%d" % (socket.gethostname(),self.port)
+        print("Web Interface Started on {}:{}".format(socket.gethostname(),self.port))
         scheduler = tornado.ioloop.PeriodicCallback(self.send,100, io_loop = self.ioloop )
         scheduler.start()
         self.ioloop.start()
-        print "Web Interface Stopped"
+        print("Web Interface Stopped")
 
     def stop(self):
         self.ioloop.stop()
@@ -103,24 +103,24 @@ class PingHandler(tornado.web.RequestHandler):
 
 class LogHandler(tornado.web.RequestHandler):
     def post(self):
-        print str(datetime.datetime.now()) + ": " + self.get_argument('text','')
+        print(str(datetime.datetime.now()) + ": " + self.get_argument('text',''))
         
 class UserInteractionHandler(tornado.websocket.WebSocketHandler):
     def open(self):
-        print "UserInteraction socket opened"
+        print("UserInteraction socket opened")
     
     def on_mesage(self, message):
         self.write_message(u"You said: " + message)
     
     def on_close(self):
-        print "UserInteraction socket closed"
+        print("UserInteraction socket closed")
                 
 class SSEStream(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def initialize(self,streams):
         self.streams = streams
         streams.add(self.streamUpdate)
-        print "New connection from %s" % self.request.remote_ip
+        print("New connection from {}".format(self.request.remote_ip))
         
     def get(self):
         self.write(":SSE Stream from Clutch\n\n")
@@ -137,7 +137,7 @@ class SSEStream(tornado.web.RequestHandler):
     #    self.finish()
         
     def on_connection_close(self):
-        print "Closed connection with %s" % self.request.remote_ip
+        print("Closed connection with %s".format(self.request.remote_ip))
         #self.streams.difference_update([self.streamUpdate])
         
 class TimeStream(tornado.web.RequestHandler):
